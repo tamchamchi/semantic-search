@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+*.env
+
+# Pyre type checker
+.pyre/
+
+# pytype
+.pytype/
+
+# Environments
+.env
+.env.*
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Jupyter runtime
+~/.local/share/jupyter/runtime/
+
+data/
