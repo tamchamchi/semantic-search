@@ -91,7 +91,10 @@ class FaissGpuIndexFlatL2(Indexer):
             images.append(img)
         return images
 
-    def build(self, folder_path: str, batch_size: int = 1000, verbose: bool = True):
+    def _compute_pool_size(self, embed_size: int, num_embeds: int) -> int:
+        return num_embeds * embed_size * 4
+
+    def build(self, folder_path: str, batch_size: int = 1000, verbose: bool = True, fast_test: bool = False):
         """
         Build FAISS index from a folder of images using batch processing to save memory.
         Steps:
@@ -128,7 +131,9 @@ class FaissGpuIndexFlatL2(Indexer):
                 # 5. Initialize FAISS index if first batch
                 if self.index_gpu is None:
                     dim = batch_features.shape[1]
-                    self.index_gpu = self._init_gpu_flat_index(dim=dim)
+                    pool_size = self._compute_pool_size(dim, len(self.mapping))
+                    self.index_gpu = self._init_gpu_flat_index(
+                        dim=dim, pool_size=pool_size)
 
                 # 6. Add batch features to FAISS index
                 self.index_gpu.add(batch_features)
@@ -154,6 +159,9 @@ class FaissGpuIndexFlatL2(Indexer):
                 torch.cuda.ipc_collect()
 
                 gc.collect()
+
+                if fast_test:
+                    break
 
                 # 8. Auto Save
                 # if auto_save:

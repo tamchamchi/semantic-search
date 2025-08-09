@@ -60,7 +60,7 @@ class Registry:
         return sorted(cls.mapping["semantic_extractor"].keys())
 
     @classmethod
-    def get_indexer(cls, name):
+    def get_indexer_cls(cls, name):
         return cls.mapping["indexer"].get(name, None)
 
     @classmethod

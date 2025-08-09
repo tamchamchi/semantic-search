@@ -15,7 +15,7 @@ from .base import SemanticExtractor
 class Beit3Extractor(SemanticExtractor):
     def __init__(self, device: str = "cuda"):
         super().__init__()
-        self.model = create_model('beit3_large_patch16_384_retrieval')
+        self.model = create_model("beit3_large_patch16_384_retrieval")
         self.model = self.model.to(device)
         self.checkpoint = torch.load(
             '/mnt/mmlab2024nas/anhndt/weight/beit3_large_patch16_384_coco_retrieval.pth')

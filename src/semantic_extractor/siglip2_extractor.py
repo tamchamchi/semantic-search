@@ -9,9 +9,9 @@ from src.common import registry
 from .base import SemanticExtractor
 
 
-@registry.register_semantic_extractor("siglip")
-class SiglipExtractor(SemanticExtractor):
-    def __init__(self, model_path: str = "google/siglip-so400m-patch14-384", device: str = "cuda"):
+@registry.register_semantic_extractor("siglip2")
+class Siglip2Extractor(SemanticExtractor):
+    def __init__(self, model_path: str = "google/siglip2-so400m-patch14-384", device: str = "cuda"):
         super().__init__()
         self.device = device
         self.model_path = model_path
@@ -25,7 +25,7 @@ class SiglipExtractor(SemanticExtractor):
             model.eval()
             return model, processor, tokenizer
         except Exception as e:
-            raise RuntimeError(f"Error loading Siglip model: {e}")
+            raise RuntimeError(f"Error loading Siglip2 model: {e}")
 
     @torch.no_grad()
     def extract_image_features(self, images, batch_size=32) -> np.ndarray:
