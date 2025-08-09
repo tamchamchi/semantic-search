@@ -12,7 +12,7 @@ load_dotenv()
 
 ACMM_DIR = Path(os.getenv("ACMM_DATA_DIR"))
 SEMANTIC_FOLDER = Path(ACMM_DIR, "semantic")
-FRAME_DIR = ACMM_DIR / "frames/Videos_L21_a"
+FRAME_DIR = ACMM_DIR / "frames"
 
 
 def indexing(indexer_name, extractor_name, batch_size: int = 1000):
@@ -35,6 +35,6 @@ def indexing(indexer_name, extractor_name, batch_size: int = 1000):
 
 if __name__ == "__main__":
     indexer_name = "gpu-index-flat-l2"
-    extractor_name = "siglip"
+    extractor_name = "siglip2"
 
-    indexing(indexer_name, extractor_name)
+    indexing(indexer_name, extractor_name, batch_size=32)
