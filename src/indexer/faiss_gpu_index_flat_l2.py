@@ -212,6 +212,7 @@ class FaissGpuIndexFlatL2(Indexer):
         self.index_cpu = faiss.read_index(str(faiss_path))
 
         self.index_gpu = self._init_gpu_flat_index(
+            dim=self.extractor.get_dim(),
             pool_size=pool_size,
             device_id=device_id,
             index_cpu=self.index_cpu

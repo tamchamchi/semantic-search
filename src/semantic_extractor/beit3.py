@@ -92,6 +92,9 @@ class Beit3Extractor(SemanticExtractor):
         feature_tensor = torch.cat(features, dim=0)
         return feature_tensor.numpy()
 
+    def get_dim(self) -> int:
+        pass
+
     @classmethod
     def from_config(cls, config: dict = {}):
         # model_path = config.get("model_path")

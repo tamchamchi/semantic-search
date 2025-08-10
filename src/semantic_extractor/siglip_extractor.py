@@ -20,7 +20,8 @@ class SiglipExtractor(SemanticExtractor):
     def _load_model(self):
         try:
             model = AutoModel.from_pretrained(self.model_path).to(self.device)
-            processor = AutoProcessor.from_pretrained(self.model_path, use_fast=True)
+            processor = AutoProcessor.from_pretrained(
+                self.model_path, use_fast=True)
             tokenizer = AutoTokenizer.from_pretrained(self.model_path)
             model.eval()
             return model, processor, tokenizer
@@ -64,6 +65,9 @@ class SiglipExtractor(SemanticExtractor):
         feature_tensors = torch.cat(features, dim=0)
 
         return feature_tensors.numpy()
+
+    def get_dim(self) -> int:
+        return self.model.config.vision_config.hidden_size
 
     @classmethod
     def from_config(cls, config: dict = {}):

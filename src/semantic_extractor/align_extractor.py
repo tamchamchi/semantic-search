@@ -64,6 +64,9 @@ class AlignExtractor(SemanticExtractor):
 
         return feature_tensors.numpy()
 
+    def get_dim(self) -> int:
+        return self.model.config.projection_dim
+
     @classmethod
     def from_config(cls, config: dict = {}):
         model_path = config.get("model_path")

@@ -35,6 +35,6 @@ def indexing(indexer_name, extractor_name, batch_size: int = 1000):
 
 if __name__ == "__main__":
     indexer_name = "gpu-index-flat-l2"
-    extractor_name = "siglip2"
+    extractor_name = "align"
 
-    indexing(indexer_name, extractor_name, batch_size=32)
+    indexing(indexer_name, extractor_name, batch_size=128)
