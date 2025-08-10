@@ -224,23 +224,38 @@ class FaissGpuIndexFlatL2(Indexer):
         print(
             f"Loaded mapping from {mapping_path} with {len(self.mapping)} items")
 
-    def search(self, query, top_k: int = 5):
+    def search(self, query, top_k: int = 5, return_idx: bool = False):
         """
-        Search top-k images by text query.
+        Search top-k results for one or multiple queries.
 
         Args:
-            query (str or list): Text query
+            query (str or list[str]): Single text query or a list of queries
             top_k (int): Number of results to return
+            return_idx (bool): If True, return only indices from FAISS. 
+                            If False, return mapping entries.
 
         Returns:
-            list: Top-k mapping entries
+            list: If return_idx=True, returns ndarray of shape (n_queries, top_k)
+                If return_idx=False, returns list of list of mapping entries
         """
-        query_embed = self.extractor.extract_text_features(
-            query).astype(np.float32)
-        _, idx = self.index_gpu.search(query_embed, top_k)
+        # Extract embeddings for one or multiple queries
+        query_embed = self.extractor.extract_text_features(query).astype(np.float32)
+        # Ensure 2D array for FAISS
+        if query_embed.ndim == 1:
+            query_embed = query_embed[np.newaxis, :]
 
-        docs = [self.mapping[idx] for idx in idx[0]]
-        return docs
+        # Batch search in FAISS
+        _, idx = self.index_gpu.search(query_embed, top_k)  # idx: (n_queries, top_k)
+
+        if return_idx:
+            return idx
+
+        # Map indices to metadata
+        results = [
+            [self.mapping[i] for i in row]
+            for row in idx
+        ]
+        return results
 
     def save_image_embed(self, path: Path):
         """

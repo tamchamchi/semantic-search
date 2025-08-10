@@ -23,14 +23,18 @@ def indexing(indexer_name, extractor_name, batch_size: int = 1000):
     extractor = load_semantic_extractor(extractor_name)
     indexer = load_indexer(indexer_name, extractor=extractor)
 
-    indexer.build(FRAME_DIR, batch_size=batch_size)
-    query = "Nighttime scene of a serious railway accident in Dong Nai, Vietnam, where a blue-and-red passenger train has collided with a white pickup truck at a railway crossing."
+    # indexer.build(FRAME_DIR, batch_size=batch_size)
+    indexer.load(faiss_file, mapping_file)
+    query = [
+        "Nighttime scene of a serious railway accident in Dong Nai, Vietnam, where a blue-and-red passenger train has collided with a white pickup truck at a railway crossing.",
+        "A group of people stands near a small temple-like structure by the coast, surrounded by wooden stakes and piles of scattered debris."
+             ]
+    print(indexer.search(query, top_k=5, return_idx=True))
     print(indexer.search(query, top_k=5))
-
     # Save
-    indexer.save_image_embed(embed_file)
-    indexer.save_faiss_index(faiss_file)
-    indexer.save_mapping(mapping_file)
+    # indexer.save_image_embed(embed_file)
+    # indexer.save_faiss_index(faiss_file)
+    # indexer.save_mapping(mapping_file)
 
 
 if __name__ == "__main__":

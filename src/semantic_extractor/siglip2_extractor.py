@@ -56,7 +56,7 @@ class Siglip2Extractor(SemanticExtractor):
 
         for i in range(0, len(texts), batch_size):
             batch = texts[i: i + batch_size]
-            inputs = self.processor(text=batch, return_tensors="pt", padding=True, truncation=True).to(
+            inputs = self.processor(text=batch, return_tensors="pt", truncation=True, padding=True, max_length=64).to(
                 self.device
             )
             outputs = self.model.get_text_features(**inputs)
