@@ -3,11 +3,13 @@ from .align_extractor import AlignExtractor
 from .beit3 import Beit3Extractor
 from .siglip_extractor import SiglipExtractor
 from .siglip2_extractor import Siglip2Extractor
+from .clip_extractor import CLIPExtractor
 from src.common import registry
 
 __all__ = ["SemanticExtractor", "AlignExtractor",
            "Beit3Extractor", "SiglipExtractor",
            "Siglip2Extractor",
+           "CLIPExtractor",
            "load_semantic_extractor"]
 
 
