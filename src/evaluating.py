@@ -58,6 +58,7 @@ class Evaluator:
         # Loop over each ground truth entry
         for _, row in df_gt.iterrows():
             query = row["query"]
+            # print(query)
 
             # Search FAISS index for top max_k results (return only indices)
             indices = self.indexer.search(
@@ -115,10 +116,11 @@ def run(extractor_name, indexer_name):
 
     evaluator.build(mapping_file, faiss_file, extractor_name, indexer_name)
 
-    score = evaluator.eval(GT_FILE, k_list=[1, 5, 10, 20])
+    score = evaluator.eval(GT_FILE, k_list=[1, 5, 10, 20, 50])
 
-    print(score)
+    return score
 
 
 if __name__ == "__main__":
-    run("siglip2", "gpu-index-flat-l2")
+    score = run("clip", "gpu-index-flat-l2")
+    print(score)

@@ -41,4 +41,4 @@ if __name__ == "__main__":
     indexer_name = "gpu-index-flat-l2"
     extractor_name = "beit3"
 
-    indexing(indexer_name, extractor_name, batch_size=64)
+    indexing(indexer_name, extractor_name, batch_size=128)
