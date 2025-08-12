@@ -28,7 +28,7 @@ def indexing(indexer_name, extractor_name, batch_size: int = 1000):
     query = [
         "The image shows a group of competitive cyclists during a race. The cyclist in front, wearing bib number 14, is dressed in a white jersey with blue sleeves, red accents, and blue shorts. He is wearing a white helmet with rainbow stripes and blue sunglasses, and appears focused and determined. Right behind him is another cyclist, bib number 15, wearing a similar team outfit with a white helmet and red sunglasses. Both riders are gripping their handlebars tightly, indicating high speed and effort. The race indicator at the bottom left corner shows they are on lap 14 out of 15.",
         "A group of people stands near a small temple-like structure by the coast, surrounded by wooden stakes and piles of scattered debris."
-             ]
+    ]
     print(indexer.search(query, top_k=5, return_idx=True))
     print(indexer.search(query, top_k=5))
     # Save
@@ -39,6 +39,6 @@ def indexing(indexer_name, extractor_name, batch_size: int = 1000):
 
 if __name__ == "__main__":
     indexer_name = "gpu-index-flat-l2"
-    extractor_name = "beit3"
+    extractor_name = "apple-clip"
 
-    indexing(indexer_name, extractor_name, batch_size=128)
+    indexing(indexer_name, extractor_name, batch_size=32)

@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import List, Optional, Union, Dict, Any
 from contextlib import asynccontextmanager
+from fastapi.staticfiles import StaticFiles
 
 try:
     from fastapi import FastAPI, HTTPException, status
@@ -179,6 +180,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount("/static", StaticFiles(directory="/mnt/mmlab2024nas/anhndt/Batch1/frames"), name="static")
+
+
+def make_public_url(local_path):
+    prefix = "/mnt/mmlab2024nas/anhndt/Batch1/frames/"
+    if local_path.startswith(prefix):
+        rel_path = local_path[len(prefix):]
+    else:
+        rel_path = local_path
+    return f"http://localhost:8080/static/{rel_path}"
+
 
 @app.get("/", response_model=Dict[str, str])
 async def root():
@@ -204,7 +216,7 @@ async def health_check():
     )
 
 
-@app.post("/search", response_model=SearchResponse)
+@app.post("/search_ALIGN/", response_model=SearchResponse)
 async def search_images(request: SearchRequest):
     """
     Search for images using semantic similarity.
@@ -255,16 +267,25 @@ async def search_images(request: SearchRequest):
             for query_results in search_results:
                 query_formatted = []
                 for item in query_results:
+                    original_path = item.get("path", "")
+                    public_path = make_public_url(original_path) if original_path else ""
+                    new_metadata = dict(item)
+                    if "path" in new_metadata:
+                        new_metadata["path"] = public_path
+                    
                     query_formatted.append(
                         SearchResult(
-                            path=item.get("path", ""),
+                            # path=item.get("path", ""),
+                            path = public_path,
                             score=None,  # Could add distance scores if available
-                            metadata=item
+                            # metadata=item
+                            metadata = new_metadata
                         )
                     )
                 formatted_results.append(query_formatted)
 
         # Handle single query case
+        total_queries = 1 if isinstance(request.query, str) else len(request.query)
         if isinstance(request.query, str):
             total_queries = 1
         else:
