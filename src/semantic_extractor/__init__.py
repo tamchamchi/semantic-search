@@ -4,16 +4,18 @@ from .beit3 import Beit3Extractor
 from .siglip_extractor import SiglipExtractor
 from .siglip2_extractor import Siglip2Extractor
 from .clip_extractor import CLIPExtractor
-from .apple_clip import AppleCLIPExtractor
+from .apple_clip_extractor import AppleCLIPExtractor
+from .coca_extractor import COCACLIPExtractor
 from src.common import registry
 
-__all__ = ["SemanticExtractor", 
+__all__ = ["SemanticExtractor",
            "AlignExtractor",
-           "Beit3Extractor", 
+           "Beit3Extractor",
            "SiglipExtractor",
            "Siglip2Extractor",
            "CLIPExtractor",
            "AppleCLIPExtractor",
+           "COCACLIPExtractor",
            "load_semantic_extractor"]
 
 

@@ -39,6 +39,6 @@ def indexing(indexer_name, extractor_name, batch_size: int = 1000):
 
 if __name__ == "__main__":
     indexer_name = "gpu-index-flat-l2"
-    extractor_name = "apple-clip"
+    extractor_name = "coca-clip"
 
     indexing(indexer_name, extractor_name, batch_size=32)
