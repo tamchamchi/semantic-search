@@ -11,14 +11,17 @@ setup_paths()
 load_dotenv()
 
 ACMM_DIR = Path(os.getenv("ACMM_DATA_DIR"))
-SEMANTIC_FOLDER = Path(ACMM_DIR, "semantic")
 FRAME_DIR = ACMM_DIR / "frames"
+
+MAPPING_DIR = Path(os.getenv("MAPPING_DIR"))
+FAISS_DIR = Path(os.getenv("FAISS_DIR"))
+EMBEDS_DIR = Path(os.getenv("EMBEDS_DIR"))
 
 
 def indexing(indexer_name, extractor_name, batch_size: int = 1000):
-    mapping_file = SEMANTIC_FOLDER / f"mapping_{extractor_name}.json"
-    embed_file = SEMANTIC_FOLDER / f"images_embeddings_{extractor_name}.bin"
-    faiss_file = SEMANTIC_FOLDER / f"faiss_index_{extractor_name}.faiss"
+    mapping_file = MAPPING_DIR / f"mapping_{extractor_name}.json"
+    embed_file = EMBEDS_DIR / f"images_embeddings_{extractor_name}.bin"
+    faiss_file =  FAISS_DIR / f"faiss_index_{extractor_name}.faiss"
 
     extractor = load_semantic_extractor(extractor_name)
     indexer = load_indexer(indexer_name, extractor=extractor)

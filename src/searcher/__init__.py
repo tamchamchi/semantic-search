@@ -1,6 +1,5 @@
 from .base import Searcher
 from .single_semantic_searcher import SingleSemanticSearcher
-from typing import Union
 from ..common import registry
 
 __all__ = [

@@ -3,8 +3,6 @@ FastAPI application for semantic search with image and text indexing.
 Uses FAISS-based similarity search with the Align extractor.
 """
 
-import os
-from pathlib import Path
 from typing import List, Optional, Union, Dict, Any
 from contextlib import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
@@ -21,9 +19,10 @@ except ImportError as e:
 
 from dotenv import load_dotenv
 
-from src.common import setup_paths
+from src.common import setup_paths, FAISS_DIR, MAPPING_DIR
 from src.indexer import load_indexer
 from src.semantic_extractor import load_semantic_extractor
+from src.searcher import load_searcher
 
 
 # Pydantic Models / Schemas
@@ -99,6 +98,7 @@ class ErrorResponse(BaseModel):
 indexer = None
 current_extractor_name = None
 current_indexer_name = None
+searcher = None
 
 
 @asynccontextmanager
@@ -135,22 +135,22 @@ def cleanup_resources():
 
 async def initialize_default_indexer():
     """Initialize default indexer if saved files exist"""
-    global indexer, current_extractor_name, current_indexer_name
+    global indexer, current_extractor_name, current_indexer_name, searcher
 
-    ACMM_DIR = Path(os.getenv("ACMM_DATA_DIR", "data"))
-    SEMANTIC_FOLDER = Path(ACMM_DIR, "semantic")
-
-    extractor_name = "align"  # Default
+    extractor_name = "coca-clip"  # Default
     indexer_name = "gpu-index-flat-l2"  # Default
 
-    mapping_file = SEMANTIC_FOLDER / f"mapping_{extractor_name}.json"
-    faiss_file = SEMANTIC_FOLDER / f"faiss_index_{extractor_name}.faiss"
+    mapping_file = FAISS_DIR / f"mapping_{extractor_name}.json"
+    faiss_file = MAPPING_DIR / f"faiss_index_{extractor_name}.faiss"
 
     if mapping_file.exists() and faiss_file.exists():
         try:
             extractor = load_semantic_extractor(extractor_name)
             indexer = load_indexer(indexer_name, extractor=extractor)
             indexer.load(faiss_file, mapping_file)
+
+            searcher = load_searcher(
+                "single-semantic-search", extractor, indexer)
 
             current_extractor_name = extractor_name
             current_indexer_name = indexer_name
@@ -163,7 +163,7 @@ async def initialize_default_indexer():
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Semantic Search API (Align)",
+    title="Semantic Search API",
     description="API for semantic search using FAISS indexing with the Align extractor",
     version="1.0.0",
     docs_url="/docs",
@@ -225,7 +225,7 @@ async def search_images(request: SearchRequest):
     - **top_k**: Number of results to return per query (1-100)
     - **return_idx**: Return only indices (True) or full metadata (False)
     """
-    global indexer
+    global indexer, searcher
 
     if not indexer:
         raise HTTPException(
@@ -238,7 +238,7 @@ async def search_images(request: SearchRequest):
         start_time = time.time()
 
         # Perform search
-        search_results = indexer.search(
+        search_results = searcher.search(
             query=request.query,
             top_k=request.top_k,
             return_idx=request.return_idx
@@ -268,24 +268,26 @@ async def search_images(request: SearchRequest):
                 query_formatted = []
                 for item in query_results:
                     original_path = item.get("path", "")
-                    public_path = make_public_url(original_path) if original_path else ""
+                    public_path = make_public_url(
+                        original_path) if original_path else ""
                     new_metadata = dict(item)
                     if "path" in new_metadata:
                         new_metadata["path"] = public_path
-                    
+
                     query_formatted.append(
                         SearchResult(
                             # path=item.get("path", ""),
-                            path = public_path,
+                            path=public_path,
                             score=None,  # Could add distance scores if available
                             # metadata=item
-                            metadata = new_metadata
+                            metadata=new_metadata
                         )
                     )
                 formatted_results.append(query_formatted)
 
         # Handle single query case
-        total_queries = 1 if isinstance(request.query, str) else len(request.query)
+        total_queries = 1 if isinstance(
+            request.query, str) else len(request.query)
         if isinstance(request.query, str):
             total_queries = 1
         else:
@@ -304,6 +306,7 @@ async def search_images(request: SearchRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Search failed: {str(e)}"
         )
+
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):

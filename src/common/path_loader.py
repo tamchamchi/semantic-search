@@ -24,7 +24,7 @@ def init_path():
 
 def setup_paths():
     load_dotenv()
-    init_path()
+    # init_path()
 
     # Add paths to sys.path
     for key in ["EXTERNAL_RESOURCE_DIR", "ACMM_DATA_DIR", "WEIGHT"]:

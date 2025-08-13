@@ -1,3 +1,6 @@
+from src.common import setup_paths, FAISS_DIR, MAPPING_DIR
+from src.semantic_extractor import load_semantic_extractor
+from src.indexer import load_indexer
 import streamlit as st
 from PIL import Image
 import os
@@ -9,18 +12,14 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
-from src.indexer import load_indexer
-from src.semantic_extractor import load_semantic_extractor
-from src.common import setup_paths
-
 # Setup path & environment
 setup_paths()
 load_dotenv()
 
 # === Constants ===
-EXTRACTORS = ["align", "siglip", "siglip2", "clip"]
-acmm_data = Path(os.getenv("ACMM_DATA_DIR"))
-semantic_folder = acmm_data / "semantic"
+EXTRACTORS = ["align", "siglip", "siglip2",
+              "clip", "coca-clip", "apple-clip", "beit3"]
+
 
 # === Load models/indexers based on extractor name ===
 
@@ -31,8 +30,8 @@ def get_indexer(extractor_name):
     extractor = load_semantic_extractor(extractor_key)
     indexer = load_indexer("gpu-index-flat-l2", extractor=extractor)
 
-    index_path = semantic_folder / f"faiss_index_{extractor_key}.faiss"
-    mapping_path = semantic_folder / f"mapping_{extractor_key}.json"
+    index_path = FAISS_DIR / f"faiss_index_{extractor_key}.faiss"
+    mapping_path = MAPPING_DIR / f"mapping_{extractor_key}.json"
 
     indexer.load(index_path, mapping_path)
     return indexer
@@ -77,4 +76,3 @@ if query:
         st.error(f"Error during search: {e}")
 else:
     st.info("Please enter a query to search for images.")
-
