@@ -87,3 +87,42 @@ def parse_frames_info(folder_path: Union[Path, str], max_workers: int = 16) -> L
 
     return frames_info
 
+def reciprocal_rank_fusion(rank_lists, k_param=60):
+    """
+    Combine multiple ranked lists into a single ranking using Reciprocal Rank Fusion (RRF).
+
+    RRF assigns a score to each document based on its position (rank) in each ranked list:
+        score(d) = Σ [ 1 / (k_param + rank_i(d)) ]
+    where rank_i(d) is the 1-based position of document `d` in the i-th ranked list.
+
+    Args:
+        rank_lists (List[List[Hashable]]):
+            A list of ranked lists, where each ranked list is a sequence of document IDs ordered
+            from most to least relevant. Document IDs can be any hashable type (e.g., int, str).
+        k_param (int, optional):
+            Constant added to the rank position to dampen the effect of lower-ranked documents.
+            Defaults to 60, which is common in literature.
+
+    Returns:
+        List[Tuple[Hashable, float]]:
+            A list of (document_id, fused_score) tuples, sorted in descending order of fused_score.
+
+    Example:
+        >>> rankings = [
+        ...     [101, 102, 103, 104],
+        ...     [103, 101, 105, 102]
+        ... ]
+        >>> result = reciprocal_rank_fusion(rankings, k_param=60)
+        >>> for doc_id, score in result:
+        ...     print(doc_id, score)
+        101 0.03278688524590164
+        103 0.032520325203252036
+        102 0.03225806451612903
+        104 0.016129032258064516
+        105 0.016129032258064516
+    """
+    scores = {}
+    for rank_list in rank_lists:
+        for rank_pos, doc_id in enumerate(rank_list):
+            scores[doc_id] = scores.get(doc_id, 0) + 1 / (k_param + rank_pos + 1)
+    return sorted(scores.items(), key=lambda x: x[1], reverse=True)

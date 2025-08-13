@@ -1,6 +1,7 @@
 class Registry:
     mapping = {
         "semantic_extractor": {},
+        "searcher": {},
         "indexer": {},
         "paths": {}
     }
@@ -44,6 +45,24 @@ class Registry:
             return name_cls
         return wrap
 
+    def register_searcher(cls, name):
+        def wrap(name_cls):
+            from src.searcher import Searcher
+
+            assert issubclass(name_cls, Searcher), (
+                "All searcher must inherit 'Searcher' class."
+            )
+
+            if name in cls.mapping["searcher"]:
+                raise KeyError(
+                    "Name '{}' already registered for {}.".format(
+                        name, cls.mapping["searcher"][name]
+                    )
+                )
+            cls.mapping["searcher"][name] = name_cls
+            return name_cls
+        return wrap
+
     @classmethod
     def register_path(cls, name, path):
         assert isinstance(path, str), "All path must be str."
@@ -66,6 +85,14 @@ class Registry:
     @classmethod
     def list_indexer(cls):
         return sorted(cls.mapping["indexer"].keys())
+
+    @classmethod
+    def get_searcher_cls(cls, name):
+        return cls.mapping["searcher"].get(name, None)
+
+    @classmethod
+    def list_searcher(cls):
+        return sorted(cls.mapping["searcher"].keys())
 
     @classmethod
     def get_path(cls, name):

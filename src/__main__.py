@@ -1,29 +1,29 @@
 from .semantic_extractor import load_semantic_extractor
-# import cv2
-import numpy as np
-from PIL import Image
-import requests
+from .indexer import load_indexer
+from .searcher import load_searcher
+from .common import setup_paths, registry
+from pathlib import Path
 
-semantic_extractor = load_semantic_extractor("beit3")
-texts = ["The dog is walking", "The dog is walking"]
-url = "http://images.cocodataset.org/val2017/000000039769.jpg"
-image = Image.open(requests.get(url, stream=True).raw)
-image_features = semantic_extractor.extract_image_features(image)
-text_features = semantic_extractor.extract_text_features(texts)
+setup_paths()
 
-print(image_features.shape)
-print(text_features.shape)  
+extractor_name = "beit3"
+indexer_name = "gpu-index-flat-l2"
+searcher_name = "single-semantic-search"
 
-euclidean = np.linalg.norm(text_features[0] - text_features[1])
-print(euclidean)
-# img = cv2.imread("/home/anhndt/ACMM/module/semantic/data/img_test/1234.jpg")
-# semantic_extractor_beit3 = load_semantic_extractor("beit3")
+faiss_path = Path(registry.get_path("faiss")) / \
+    f"faiss_index_{extractor_name}.faiss"
+mapping_path = Path(registry.get_path("embeds")) / \
+    f"image_embeddings_{extractor_name}.bin"
+mapping_path = Path(registry.get_path("mapping")) / \
+    f"mapping_{extractor_name}.json"
 
-# features = semantic_extractor.extract_text_features(texts)
-# features_beit3 = semantic_extractor_beit3.extract_text_features(texts)
-# Shape 640
-# print(features.shape)
-# print(features_beit3.shape)
+extractor = load_semantic_extractor(extractor_name)
+indexer = load_indexer(indexer_name, extractor=extractor)
 
-# features_img = semantic_extractor_beit3.extract_image_features(img)
-# print(features_img)
+indexer.load(faiss_path, mapping_path)
+
+searcher = load_searcher(searcher_name, extractor, indexer)
+
+query = "a dog"
+
+print(searcher.search(query, top_k=10))

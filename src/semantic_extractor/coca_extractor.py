@@ -12,7 +12,7 @@ from .base import SemanticExtractor
 
 @registry.register_semantic_extractor("coca-clip")
 class COCACLIPExtractor(SemanticExtractor):
-    def __init__(self, model_path: str = "coca_ViT-L-14", pretrained: str = "mscoco_finetuned_laion2B-s13B-b90k", device: str = "cuda"):
+    def __init__(self, model_path: str = "coca_ViT-L-14", pretrained: str = "laion2b_s13b_b90k", device: str = "cuda"):
         super().__init__()
         self.device = device
         self.model_path = model_path
@@ -93,7 +93,7 @@ class COCACLIPExtractor(SemanticExtractor):
     @classmethod
     def from_config(cls, config: dict = {}):
         model_path = config.get(
-            "model_path", "hf-hub:apple/DFN5B-CLIP-ViT-H-14")
+            "model_path", "coca_ViT-L-14")
+        pretrained = config.get("pretrained", "laion2b_s13b_b90k")
         device = config.get("device", "cuda")
-        tokenizer_path = config.get("tokenizer_path", "ViT-H-14")
-        return cls(model_path=model_path, tokenizer_path=tokenizer_path, device=device)
+        return cls(model_path=model_path, pretrained=pretrained, device=device)

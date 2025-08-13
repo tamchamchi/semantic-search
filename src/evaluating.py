@@ -106,7 +106,7 @@ def run(extractor_name, indexer_name):
 
     ACMM_DIR = Path(os.getenv("ACMM_DATA_DIR"))
     SEMANTIC_FOLDER = Path(ACMM_DIR, "semantic")
-    GT_FILE = ACMM_DIR / "gt_2.csv"
+    GT_FILE = ACMM_DIR / "gt.csv"
     print(GT_FILE)
 
     mapping_file = SEMANTIC_FOLDER / f"mapping_{extractor_name}.json"
@@ -122,5 +122,5 @@ def run(extractor_name, indexer_name):
 
 
 if __name__ == "__main__":
-    score = run("siglip", "gpu-index-flat-l2")
+    score = run("beit3", "gpu-index-flat-l2")
     print(score)
