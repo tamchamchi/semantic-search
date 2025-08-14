@@ -1,6 +1,7 @@
-from .base import Searcher
-from .single_semantic_searcher import SingleSemanticSearcher
 from ..common import registry
+from .base import Searcher
+from .fusion_sematic_searcher import FussionSemanticSearch
+from .single_semantic_searcher import SingleSemanticSearcher
 
 __all__ = [
     "Searcher",

@@ -1,16 +1,15 @@
-from src.common import setup_paths, FAISS_DIR, MAPPING_DIR
-from src.semantic_extractor import load_semantic_extractor
-from src.indexer import load_indexer
 import streamlit as st
 from PIL import Image
 import os
-from pathlib import Path
 from dotenv import load_dotenv
 import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from src.common import setup_paths, FAISS_DIR, MAPPING_DIR
+from src.semantic_extractor import load_semantic_extractor
+from src.indexer import load_indexer
 
 # Setup path & environment
 setup_paths()

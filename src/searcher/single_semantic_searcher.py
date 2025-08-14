@@ -13,7 +13,7 @@ class SingleSemanticSearcher(Searcher):
         self.extractor = extractor
         self.indexer = indexer
 
-    def search(self, query, top_k: int = 5, return_idx: bool = False):
+    def search(self, query, top_k: int = 5, return_idx: bool = False, mode: str = "text"):
         """
         Search top-k results for one or multiple queries.
 
@@ -27,12 +27,22 @@ class SingleSemanticSearcher(Searcher):
             list: If return_idx=True, returns ndarray of shape (n_queries, top_k)
                 If return_idx=False, returns list of list of mapping entries
         """
-        # Extract embeddings for one or multiple queries
-        query_embed = self.extractor.extract_text_features(
-            query).astype(np.float32)
-        # Ensure 2D array for FAISS
-        if query_embed.ndim == 1:
-            query_embed = query_embed[np.newaxis, :]
+        if mode == "text":
+            # Extract embeddings for one or multiple queries
+            query_embed = self.extractor.extract_text_features(
+                query).astype(np.float32)
+            # Ensure 2D array for FAISS
+            if query_embed.ndim == 1:
+                query_embed = query_embed[np.newaxis, :]
+        elif mode == "image":
+            # Extract embeddings for one or multiple queries
+            query_embed = self.extractor.extract_image_features(
+                query).astype(np.float32)
+            # Ensure 2D array for FAISS
+            if query_embed.ndim == 1:
+                query_embed = query_embed[np.newaxis, :]
+        else:
+            raise KeyError(f"Unsupported mode: {mode}")
 
         # Batch search in FAISS
         _, idx = self.indexer.index_gpu.search(

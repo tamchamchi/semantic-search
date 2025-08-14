@@ -1,8 +1,12 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from .path_loader import setup_paths
 from .registry import Registry, registry
+
+load_dotenv()
 
 ACMM_DIR = Path(os.getenv("ACMM_DATA_DIR"))
 FRAME_DIR = ACMM_DIR / "frames"

@@ -4,7 +4,6 @@ Uses FAISS-based similarity search with the Align extractor.
 """
 
 from typing import List, Optional, Union, Dict, Any
-from contextlib import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
 
 try:
@@ -18,7 +17,6 @@ except ImportError as e:
     raise
 
 from dotenv import load_dotenv
-
 from src.common import setup_paths, FAISS_DIR, MAPPING_DIR
 from src.indexer import load_indexer
 from src.semantic_extractor import load_semantic_extractor
@@ -101,25 +99,6 @@ current_indexer_name = None
 searcher = None
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan manager"""
-    # Startup
-    setup_paths()
-    load_dotenv()
-
-    # Initialize default indexer and extractor if files exist
-    try:
-        await initialize_default_indexer()
-    except Exception as e:
-        print(f"Warning: Could not load default indexer: {e}")
-
-    yield
-
-    # Shutdown
-    cleanup_resources()
-
-
 def cleanup_resources():
     """Clean up resources on shutdown"""
     global indexer
@@ -140,8 +119,8 @@ async def initialize_default_indexer():
     extractor_name = "coca-clip"  # Default
     indexer_name = "gpu-index-flat-l2"  # Default
 
-    mapping_file = FAISS_DIR / f"mapping_{extractor_name}.json"
-    faiss_file = MAPPING_DIR / f"faiss_index_{extractor_name}.faiss"
+    mapping_file = MAPPING_DIR / f"mapping_{extractor_name}.json"
+    faiss_file = FAISS_DIR / f"faiss_index_{extractor_name}.faiss"
 
     if mapping_file.exists() and faiss_file.exists():
         try:
@@ -167,8 +146,7 @@ app = FastAPI(
     description="API for semantic search using FAISS indexing with the Align extractor",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc",
-    lifespan=lifespan
+    redoc_url="/redoc"
 )
 
 # Add CORS middleware
@@ -180,6 +158,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.on_event("startup")
+async def startup_event():
+    """Application startup event"""
+    setup_paths()
+    load_dotenv()
+
+    # Initialize default indexer and extractor if files exist
+    try:
+        await initialize_default_indexer()
+    except Exception as e:
+        print(f"Warning: Could not load default indexer: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Application shutdown event"""
+    cleanup_resources()
+
+
 app.mount("/static", StaticFiles(directory="/mnt/mmlab2024nas/anhndt/Batch1/frames"), name="static")
 
 
@@ -189,7 +187,7 @@ def make_public_url(local_path):
         rel_path = local_path[len(prefix):]
     else:
         rel_path = local_path
-    return f"http://localhost:8080/static/{rel_path}"
+    return f"http://localhost:8081/static/{rel_path}"
 
 
 @app.get("/", response_model=Dict[str, str])
@@ -216,7 +214,7 @@ async def health_check():
     )
 
 
-@app.post("/search_ALIGN/", response_model=SearchResponse)
+@app.post("/search_semantic/", response_model=SearchResponse)
 async def search_images(request: SearchRequest):
     """
     Search for images using semantic similarity.
