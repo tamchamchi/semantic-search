@@ -4,7 +4,6 @@ from pathlib import Path
 
 import faiss
 import numpy as np
-import rmm
 import torch
 from PIL import Image
 from tqdm import tqdm
@@ -14,6 +13,7 @@ from src.semantic_extractor import SemanticExtractor
 
 from .base import Indexer
 from .utils import parse_frames_info
+from .rmm_manager import RMMManager
 
 
 @registry.register_indexer("gpu-index-flat-l2")
@@ -22,58 +22,67 @@ class FaissGpuIndexFlatL2(Indexer):
         self,
         extractor: SemanticExtractor,
         device: str = "cuda",
+        use_rmm: bool = True,
     ):
         """
-        GPU-based FAISS IndexFlatL2 for exact similarity search.
+        FAISS IndexFlatL2 running on GPU for exact similarity search.
 
         Args:
-            extractor (SemanticExtractor): Module to extract features for images/text
-            device (str): 'cuda' or 'cpu' (defaults to 'cuda' if available)
+            extractor (SemanticExtractor): Feature extraction module for images/text
+            device (str): 'cuda' or 'cpu' (default is 'cuda' if available)
+            use_rmm (bool): Whether to use RMM for GPU memory management
         """
         super().__init__()
         self.extractor = extractor
         self.device = device or "cuda" if torch.cuda.is_available() else "cpu"
+        self.use_rmm = use_rmm
+        self.device_id = 0  # Default to device 0
+        self.rmm_pool_size = None
+        self.gpu_resources = None
+        self.index_gpu = None
+        self.index_cpu = None
 
     def _init_gpu_flat_index(
         self,
         dim: int,
-        pool_size: int = 2**30,
         device_id: int = 0,
         index_cpu: faiss.Index = None,
     ):
         """
-        Initialize a FAISS GpuIndexFlatL2 with RMM memory pool.
+        Initialize a FAISS GPU IndexFlatL2 index.
 
         Args:
-            dim (int): Dimension of feature vectors
-            pool_size (int): Initial RMM memory pool size (default ~1GB)
-            device_id (int): GPU device id (default 0)
+            dim (int): Feature dimension
+            device_id (int): GPU device ID
+            index_cpu (faiss.Index): Optional prebuilt CPU index to transfer to GPU
 
         Returns:
-            faiss.GpuIndexFlatL2: GPU index ready for adding vectors
+            faiss.Index: GPU index
         """
         try:
-            # Init RMM pool
-            self.pool = rmm.mr.PoolMemoryResource(
-                rmm.mr.CudaMemoryResource(), initial_pool_size=pool_size
-            )
-            rmm.mr.set_per_device_resource(device_id, self.pool)
+            # Initialize RMM memory pool if enabled
+            if self.use_rmm:
+                RMMManager.initialize_pool(device_id, self.rmm_pool_size)
 
-            # GPU resources
-            res = faiss.StandardGpuResources()
-            res.noTempMemory()
+            # Create FAISS GPU resources without temporary memory
+            self.gpu_resources = faiss.StandardGpuResources()
+            self.gpu_resources.noTempMemory()
 
-            # Clone options
             co = faiss.GpuClonerOptions()
-            co.use_cuvs = True
+            co.use_cuvs = True  # Use cuVS if available for acceleration
 
             if index_cpu is None:
                 if dim is None:
                     raise ValueError("Need dim if index_cpu is not provided")
                 index_cpu = faiss.IndexFlatL2(dim)
 
-            # Move CPU index to GPU
-            index_gpu = faiss.index_cpu_to_gpu(res, device_id, index_cpu, co)
+            # Transfer index from CPU to GPU
+            index_gpu = faiss.index_cpu_to_gpu(
+                self.gpu_resources,
+                device_id,
+                index_cpu,
+                co
+            )
             return index_gpu
 
         except Exception as e:
@@ -81,13 +90,13 @@ class FaissGpuIndexFlatL2(Indexer):
 
     def _get_image_from_path(self, paths: list[str]) -> list[Image.Image]:
         """
-        Load images from a list of file paths.
+        Load images from given file paths.
 
         Args:
-            paths (list[str]): List of image file paths
+            paths (list[str]): Image file paths
 
         Returns:
-            list[Image.Image]: List of loaded PIL images in RGB format
+            list[Image.Image]: List of RGB PIL images
         """
         images = []
         for path in tqdm(paths, desc="Image Loading..."):
@@ -96,7 +105,8 @@ class FaissGpuIndexFlatL2(Indexer):
         return images
 
     def _compute_pool_size(self, embed_size: int, num_embeds: int) -> int:
-        return num_embeds * embed_size * 4
+        """Compute RMM pool size in bytes."""
+        return num_embeds * embed_size * 4  # 4 bytes per float32 value
 
     def build(
         self,
@@ -106,48 +116,45 @@ class FaissGpuIndexFlatL2(Indexer):
         fast_test: bool = False,
     ):
         """
-        Build FAISS index from a folder of images using batch processing to save memory.
-        Steps:
-        1. Parse mapping info (image paths)
-        2. Load images in batches
-        3. Extract features for each batch
-        4. Initialize GPU FAISS index if not already done
-        5. Add features to the index batch by batch
-        """
+        Build a FAISS index from a folder of images using batch processing.
 
-        # 1. Parse mapping info (e.g., list of dicts with image paths)
+        Steps:
+            1. Parse mapping info (paths & metadata)
+            2. Load images in batches
+            3. Extract features for each batch
+            4. Initialize FAISS index on first batch
+            5. Add features batch-by-batch
+        """
+        # 1. Load image mapping information
         self.mapping = parse_frames_info(folder_path)
         print(f"Num images: {len(self.mapping)}")
 
-        # 2. Initialize the FAISS index later (when we know feature dimension)
         index_cpu = None
         dim = None
-
-        # Temporary list to store paths for current batch
         batch_paths = []
 
+        # Process images in batches
         for idx, item in enumerate(self.mapping):
-            batch_paths.append(item["path"])  # Assume mapping contains 'path'
+            batch_paths.append(item["path"])
 
-            # When batch is full or at the last image
             if len(batch_paths) == batch_size or idx == len(self.mapping) - 1:
-                # 3. Load current batch of images
+                # 2. Load batch of images
                 batch_images = self._get_image_from_path(batch_paths)
 
-                # 4. Extract features for this batch
+                # 3. Extract features
                 batch_features = self.extractor.extract_image_features(
                     batch_images, batch_size=batch_size
-                )
-                batch_features = batch_features.astype(np.float32)
+                ).astype(np.float32)
 
-                # 5. Initialize FAISS index if first batch
+                # 4. Create FAISS CPU index on first batch
                 if index_cpu is None:
                     dim = batch_features.shape[1]
                     index_cpu = faiss.IndexFlatL2(dim)
 
-                # 6. Add batch features to FAISS index
+                # 5. Add features to CPU index
                 index_cpu.add(batch_features)
 
+                # Store all features for optional saving
                 if not hasattr(self, "image_features") or self.image_features is None:
                     self.image_features = batch_features
                 else:
@@ -157,131 +164,108 @@ class FaissGpuIndexFlatL2(Indexer):
 
                 if verbose:
                     print("=" * 30)
-                    print(
-                        f"Processed iamges: {len(self.image_features)}/{len(self.mapping)}"
-                    )
+                    print(f"Processed images: {len(self.image_features)}/{len(self.mapping)}")
                     print(f"Embed shape: {self.image_features.shape}")
                     print("=" * 30)
 
-                # 7. Release memory for this batch
+                # Free batch memory
                 del batch_images, batch_features
                 batch_paths.clear()
 
                 torch.cuda.empty_cache()
                 torch.cuda.ipc_collect()
-
                 gc.collect()
 
                 if fast_test:
                     break
 
-        pool_size = self._compute_pool_size(dim, len(self.mapping))
-        self.index_gpu = self._init_gpu_flat_index(
-            dim=dim, pool_size=pool_size, index_cpu=index_cpu)
+        # Compute RMM pool size if enabled
+        if self.use_rmm:
+            self.rmm_pool_size = self._compute_pool_size(dim, len(self.mapping))
 
-        # Clear index_cpu to free CPU memory
+        # Transfer index to GPU
+        self.index_gpu = self._init_gpu_flat_index(dim=dim, index_cpu=index_cpu)
+
+        # Free CPU index memory
         del index_cpu
         gc.collect()
 
         print(f"Total indexed images: {self.index_gpu.ntotal}")
 
-    def load(self, faiss_path: Path, mapping_path: Path, pool_size: int = 2**30, device_id: int = 0):
+    def load(self, faiss_path: Path, mapping_path: Path, device_id: int = 0):
         """
-        Load a FAISS index and its corresponding mapping from disk, 
-        and move the index to GPU with an RMM-managed memory pool.
-
-        Args:
-            faiss_path (Path): Path to the saved FAISS index (.faiss file).
-            mapping_path (Path): Path to the mapping JSON file containing metadata.
-            pool_size (int, optional): Initial size (in bytes) for the RMM GPU memory pool. 
-                Defaults to 1 GB (2**30).
-            device_id (int, optional): GPU device ID to load the index onto. Defaults to 0.
-
-        Returns:
-            None
-
-        Raises:
-            FileNotFoundError: If either `faiss_path` or `mapping_path` does not exist.
-            RuntimeError: If there is an error during FAISS index loading or GPU transfer.
+        Load a saved FAISS index and mapping, then move index to GPU.
         """
-        # Load mapping
         with open(mapping_path, "r", encoding="utf-8") as f:
             self.mapping = json.load(f)
 
-        # Load FAISS index (CPU)
         self.index_cpu = faiss.read_index(str(faiss_path))
 
         self.index_gpu = self._init_gpu_flat_index(
             dim=self.extractor.get_dim(),
-            pool_size=pool_size,
             device_id=device_id,
             index_cpu=self.index_cpu
         )
 
-        print(
-            f"Loaded FAISS index from {faiss_path} with {self.index_gpu.ntotal} vectors"
-        )
-        print(
-            f"Loaded mapping from {mapping_path} with {len(self.mapping)} items")
+        print(f"Loaded FAISS index from {faiss_path} with {self.index_gpu.ntotal} vectors")
+        print(f"Loaded mapping from {mapping_path} with {len(self.mapping)} items")
 
     def search(self, query, top_k: int = 5, return_idx: bool = False):
         """
-        Search top-k results for one or multiple queries.
-
-        Args:
-            query (str or list[str]): Single text query or a list of queries
-            top_k (int): Number of results to return
-            return_idx (bool): If True, return only indices from FAISS. 
-                            If False, return mapping entries.
-
-        Returns:
-            list: If return_idx=True, returns ndarray of shape (n_queries, top_k)
-                If return_idx=False, returns list of list of mapping entries
+        Search for the top-k results for a given text query or list of queries.
         """
-        # Extract embeddings for one or multiple queries
         query_embed = self.extractor.extract_text_features(query).astype(np.float32)
-        # Ensure 2D array for FAISS
         if query_embed.ndim == 1:
             query_embed = query_embed[np.newaxis, :]
 
-        # Batch search in FAISS
-        _, idx = self.index_gpu.search(query_embed, top_k)  # idx: (n_queries, top_k)
+        _, idx = self.index_gpu.search(query_embed, top_k)
 
         if return_idx:
             return idx
 
-        # Map indices to metadata
-        results = [
-            [self.mapping[i] for i in row]
-            for row in idx
-        ]
-        return results
+        return [[self.mapping[i] for i in row] for row in idx]
 
     def save_image_embed(self, path: Path):
-        """
-        Save image feature embeddings to binary file.
-        """
+        """Save image feature embeddings to a binary file."""
         path.parent.mkdir(parents=True, exist_ok=True)
         self.image_features.astype(np.float32).tofile(path)
-        print(
-            f"Saved embedding to {path} with shape {self.image_features.shape}")
+        print(f"Saved embedding to {path} with shape {self.image_features.shape}")
 
     def save_faiss_index(self, path: Path):
-        """
-        Save FAISS index to .faiss file.
-        """
-        # Move GPU index to CPU before saving
+        """Save FAISS index to a .faiss file."""
         path.parent.mkdir(parents=True, exist_ok=True)
         index_cpu = faiss.index_gpu_to_cpu(self.index_gpu)
         faiss.write_index(index_cpu, str(path))
-        print(
-            f"Saved FAISS index to {path} with {len(self.image_features)} vectors")
+        print(f"Saved FAISS index to {path} with {len(self.image_features)} vectors")
 
     def save_mapping(self, path: Path):
-        """
-        Save mapping to JSON file.
-        """
+        """Save mapping metadata to JSON."""
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(self.mapping, f, ensure_ascii=False, indent=4)
         print(f"Saved mapping to {path}")
+
+    def __del__(self):
+        """Release FAISS index and GPU resources on object deletion."""
+        if hasattr(self, 'index_gpu') and self.index_gpu is not None:
+            try:
+                self.index_cpu = faiss.index_gpu_to_cpu(self.index_gpu)
+            except Exception as e:
+                print(e)
+            del self.index_gpu
+            self.index_gpu = None
+
+        if hasattr(self, 'index_cpu') and self.index_cpu is not None:
+            del self.index_cpu
+            self.index_cpu = None
+
+        if hasattr(self, 'gpu_resources') and self.gpu_resources is not None:
+            del self.gpu_resources
+            self.gpu_resources = None
+
+        if self.use_rmm:
+            RMMManager.release_pool(self.device_id)
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
