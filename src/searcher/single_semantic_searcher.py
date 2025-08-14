@@ -1,7 +1,7 @@
 import numpy as np
 
 from ..common import registry
-from ..indexer import Indexer
+from ..indexer import Indexer, reciprocal_rank_fusion
 from ..semantic_extractor import SemanticExtractor
 from .base import Searcher
 
@@ -13,7 +13,7 @@ class SingleSemanticSearcher(Searcher):
         self.extractor = extractor
         self.indexer = indexer
 
-    def search(self, query, top_k: int = 5, return_idx: bool = False, mode: str = "text"):
+    def search(self, query, top_k: int = 5, return_idx: bool = False, mode: str = "text", use_rrf: bool = True):
         """
         Search top-k results for one or multiple queries.
 
@@ -50,6 +50,10 @@ class SingleSemanticSearcher(Searcher):
 
         if return_idx:
             return idx
+
+        if use_rrf:
+            rrf = reciprocal_rank_fusion(idx)
+            return [self.indexer.mapping[i[0]] for i in rrf]
 
         # Map indices to metadata
         results = [
