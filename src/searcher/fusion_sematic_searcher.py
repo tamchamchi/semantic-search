@@ -3,6 +3,7 @@ from ..indexer import Indexer, reciprocal_rank_fusion
 from ..semantic_extractor import SemanticExtractor
 from .base import Searcher
 
+
 @registry.register_searcher("fussion-semantic-search")
 class FussionSemanticSearch(Searcher):
     def __init__(
@@ -53,6 +54,9 @@ class FussionSemanticSearch(Searcher):
         fusion_res = reciprocal_rank_fusion(results)
 
         idxs = [idx for idx, _ in fusion_res[:top_k]]
+
+        if return_idx:
+            return [idxs]
 
         return [
             self.indexers[0].mapping[i] for i in idxs
