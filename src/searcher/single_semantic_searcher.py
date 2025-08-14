@@ -53,7 +53,7 @@ class SingleSemanticSearcher(Searcher):
 
         if use_rrf:
             rrf = reciprocal_rank_fusion(idx)
-            return [self.indexer.mapping[i[0]] for i in rrf]
+            return [self.indexer.mapping[i[0]] for i in rrf[:top_k]]
 
         # Map indices to metadata
         results = [
