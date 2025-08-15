@@ -2,9 +2,11 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import argparse
 
 from src.indexer import load_indexer
 from src.semantic_extractor import load_semantic_extractor
+from .common import MAPPING_DIR, FAISS_DIR
 
 
 class Evaluator:
@@ -93,7 +95,7 @@ class Evaluator:
         return mean_recall
 
 
-def run(extractor_name, indexer_name):
+def run(indexer_name, extractor_name):
     import os
     from pathlib import Path
 
@@ -105,12 +107,11 @@ def run(extractor_name, indexer_name):
     load_dotenv()
 
     ACMM_DIR = Path(os.getenv("ACMM_DATA_DIR"))
-    SEMANTIC_FOLDER = Path(ACMM_DIR, "semantic")
     GT_FILE = ACMM_DIR / "gt.csv"
     print(GT_FILE)
 
-    mapping_file = SEMANTIC_FOLDER / f"mapping_{extractor_name}.json"
-    faiss_file = SEMANTIC_FOLDER / f"faiss_index_{extractor_name}.faiss"
+    mapping_file = MAPPING_DIR / f"mapping_{extractor_name}.json"
+    faiss_file = FAISS_DIR / f"faiss_index_{extractor_name}.faiss"
 
     evaluator = Evaluator()
 
@@ -122,5 +123,10 @@ def run(extractor_name, indexer_name):
 
 
 if __name__ == "__main__":
-    score = run("beit3", "gpu-index-flat-l2")
+    parser = argparse.ArgumentParser(description="Index images using a semantic extractor and FAISS.")
+    parser.add_argument("--indexer", type=str, required=True, help="Name of the indexer (e.g., gpu-index-flat-l2)")
+    parser.add_argument("--extractor", type=str, required=True, help="Name of the extractor (e.g., beit3)")
+    args = parser.parse_args()
+
+    score = run(args.indexer, args.extractor)
     print(score)

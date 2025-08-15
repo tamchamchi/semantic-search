@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-
+import argparse
 from dotenv import load_dotenv
 
 from src.common import setup_paths
@@ -18,31 +18,38 @@ FAISS_DIR = Path(os.getenv("FAISS_DIR"))
 EMBEDS_DIR = Path(os.getenv("EMBEDS_DIR"))
 
 
-def indexing(indexer_name, extractor_name, batch_size: int = 1000):
+def indexing(indexer_name, extractor_name, batch_size: int = 1000, fast_test: bool = False):
     mapping_file = MAPPING_DIR / f"mapping_{extractor_name}.json"
     embed_file = EMBEDS_DIR / f"images_embeddings_{extractor_name}.bin"
-    faiss_file =  FAISS_DIR / f"faiss_index_{extractor_name}.faiss"
+    faiss_file = FAISS_DIR / f"faiss_index_{extractor_name}.faiss"
 
     extractor = load_semantic_extractor(extractor_name)
     indexer = load_indexer(indexer_name, extractor=extractor)
 
-    indexer.build(FRAME_DIR, batch_size=batch_size)
-    # indexer.load(faiss_file, mapping_file)
+    indexer.build(FRAME_DIR, batch_size=batch_size, fast_test=fast_test)
+
     query = [
-        # "The image shows a group of competitive cyclists during a race. The cyclist in front, wearing bib number 14, is dressed in a white jersey with blue sleeves, red accents, and blue shorts. He is wearing a white helmet with rainbow stripes and blue sunglasses, and appears focused and determined. Right behind him is another cyclist, bib number 15, wearing a similar team outfit with a white helmet and red sunglasses. Both riders are gripping their handlebars tightly, indicating high speed and effort. The race indicator at the bottom left corner shows they are on lap 14 out of 15.",
-        # "A group of people stands near a small temple-like structure by the coast, surrounded by wooden stakes and piles of scattered debris.",
-        "A man in a green collared shirt and sunglasses walks outdoors with a relaxed smile, framed against a backdrop of yellow cable cars gliding over lush green mountains. White support pillars and ornamental plants flank the scene under a clear sky dotted with soft clouds."
+        "Two people lie on a vibrant bed of flowers, smiling happily; the one on the left wears glasses and a deep blue shirt with long red hair spread out, while the one on the right wears a bright green shirt with tied-back red hair, both surrounded by colorful blooms and lush greenery under warm sunlight."
     ]
     print(indexer.search(query, top_k=5, return_idx=True))
     print(indexer.search(query, top_k=5))
-    # Save
+
     indexer.save_image_embed(embed_file)
     indexer.save_faiss_index(faiss_file)
     indexer.save_mapping(mapping_file)
 
 
 if __name__ == "__main__":
-    indexer_name = "gpu-index-flat-l2"
-    extractor_name = "beit3"
+    parser = argparse.ArgumentParser(
+        description="Index images using a semantic extractor and FAISS.")
+    parser.add_argument("--indexer", type=str, default="gpu-index-flat-l2",
+                        required=True, help="Name of the indexer (e.g., gpu-index-flat-l2)")
+    parser.add_argument("--extractor", type=str, default="align",
+                        required=True, help="Name of the extractor (e.g., beit3)")
+    parser.add_argument("--batch-size", type=int,
+                        default=1000, help="Batch size for indexing")
+    parser.add_argument("--fast-test", type=bool, default=False)
 
-    indexing(indexer_name, extractor_name, batch_size=32)
+    args = parser.parse_args()
+
+    indexing(args.indexer, args.extractor, args.batch_size, args.fast_test)

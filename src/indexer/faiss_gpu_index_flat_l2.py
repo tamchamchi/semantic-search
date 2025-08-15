@@ -12,7 +12,7 @@ from src.common import registry
 from src.semantic_extractor import SemanticExtractor
 
 from .base import Indexer
-from .utils import parse_frames_info
+from .utils import parse_frames_info, get_unique_path
 from .rmm_manager import RMMManager
 
 
@@ -227,12 +227,14 @@ class FaissGpuIndexFlatL2(Indexer):
 
     def save_image_embed(self, path: Path):
         """Save image feature embeddings to a binary file."""
+        path = get_unique_path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         self.image_features.astype(np.float32).tofile(path)
         print(f"Saved embedding to {path} with shape {self.image_features.shape}")
 
     def save_faiss_index(self, path: Path):
         """Save FAISS index to a .faiss file."""
+        path = get_unique_path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         index_cpu = faiss.index_gpu_to_cpu(self.index_gpu)
         faiss.write_index(index_cpu, str(path))
@@ -240,6 +242,7 @@ class FaissGpuIndexFlatL2(Indexer):
 
     def save_mapping(self, path: Path):
         """Save mapping metadata to JSON."""
+        path = get_unique_path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(self.mapping, f, ensure_ascii=False, indent=4)

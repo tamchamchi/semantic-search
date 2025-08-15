@@ -7,8 +7,7 @@ from tqdm import tqdm
 from transformers import XLMRobertaTokenizer
 from uniml.beit3.modeling_finetune import beit3_large_patch16_384_retrieval
 from uniml.beit3.utils import load_model_and_may_interpolate
-from src.common import registry
-from pathlib import Path
+from src.common import registry, WEIGHT
 
 from .base import SemanticExtractor
 
@@ -18,9 +17,8 @@ class Beit3Extractor(SemanticExtractor):
     def __init__(self, device: str = "cuda"):
         super().__init__()
         # Path to pretrained model weights
-        self.model_weight_path = Path(registry.get_path(
-            "weight")) / "beit3_large_itc_patch16_224.pth"
-        
+        self.model_weight_path = WEIGHT / "beit3_large_patch16_384_coco_retrieval.pth"
+
         # Initialize BEiT3 retrieval model without loading weights yet
         self.model = beit3_large_patch16_384_retrieval(pretrained=False)
         
@@ -34,8 +32,7 @@ class Beit3Extractor(SemanticExtractor):
         self.device = device
 
         # Initialize tokenizer with sentencepiece model
-        self.tokenizer = XLMRobertaTokenizer(
-            Path(registry.get_path("weight")) / "beit3.spm")
+        self.tokenizer = XLMRobertaTokenizer(WEIGHT / "beit3.spm")
         
         # Image preprocessing pipeline (Resize → ToTensor)
         self.processor = transforms.Compose([

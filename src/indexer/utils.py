@@ -39,6 +39,17 @@ def parse_path_info(example: str):
     else:
         # Raise an error if the path format is unexpected
         raise ValueError(f"Invalid path format: {example}")
+    
+def get_unique_path(path: Path) -> Path:
+    """If file exists, append (2), (3), etc. until unique."""
+    if not path.exists():
+        return path
+    counter = 2
+    while True:
+        new_path = path.with_name(f"{path.stem}({counter}){path.suffix}")
+        if not new_path.exists():
+            return new_path
+        counter += 1
 
 
 def parse_frames_info(folder_path: Union[Path, str], max_workers: int = 16) -> List[dict]:

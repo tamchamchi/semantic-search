@@ -5,7 +5,7 @@ Uses FAISS-based similarity search with multiple models.
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Union, Optional
+from typing import Any, Dict
 import time
 
 try:
@@ -13,7 +13,7 @@ try:
     from fastapi.responses import JSONResponse
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.staticfiles import StaticFiles
-    from pydantic import BaseModel, Field
+    from .schema import ErrorResponse, SearchResponse, SearchResult, SearchTextRequest, HealthResponse
 except ImportError as e:
     print(f"FastAPI dependencies not installed: {e}")
     print("Please install with: pip install fastapi uvicorn pydantic")
@@ -25,63 +25,6 @@ from src.common import FAISS_DIR, MAPPING_DIR, setup_paths
 from src.indexer import load_indexer, reciprocal_rank_fusion
 from src.searcher import load_searcher
 from src.semantic_extractor import load_semantic_extractor
-
-# Pydantic Models / Schemas
-class SearchResult(BaseModel):
-    """Schema for individual search result"""
-    path: str = Field(..., description="Path to the matched image")
-    score: Optional[float] = Field(None, description="Similarity score")
-    metadata: Optional[Dict[str, Any]] = Field(
-        None, description="Additional metadata")
-
-class SearchResponse(BaseModel):
-    """Schema for search response"""
-    query: Union[str, List[str]] = Field(..., description="Original query")
-    results: List[SearchResult] = Field(
-        ...,
-        description="List of search results"
-    )
-    model: str = Field(..., description="Model used for search")
-    total_queries: int = Field(..., description="Number of queries processed")
-    top_k: int = Field(..., description="Number of results per query")
-    processing_time: float = Field(..., description="Processing time in seconds")
-
-class SearchTextRequest(BaseModel):
-    """Request schema for text search"""
-    query: Union[str, List[str]] = Field(
-        ...,
-        description="Text query or list of text queries",
-        example="A group of cyclists racing on bicycles"
-    )
-    top_k: int = Field(
-        default=5,
-        ge=1,
-        le=100,
-        description="Number of top results to return"
-    )
-    model: str = Field(
-        default="coca-clip",
-        description="Model to use: 'align', 'coca-clip', 'apple-clip', or 'fusion'"
-    )
-
-class HealthResponse(BaseModel):
-    """Schema for health check response"""
-    status: str = Field(..., description="API health status")
-    version: str = Field(..., description="API version")
-    loaded_models: Dict[str, bool] = Field(
-        ...,
-        description="Status of loaded models"
-    )
-    total_indexed_items: Dict[str, int] = Field(
-        ...,
-        description="Total items indexed per model"
-    )
-
-class ErrorResponse(BaseModel):
-    """Schema for error responses"""
-    error: str = Field(..., description="Error type")
-    message: str = Field(..., description="Error message")
-    detail: Optional[str] = Field(None, description="Additional error details")
 
 # Global variables
 models = {
@@ -170,7 +113,7 @@ app.add_middleware(
 load_dotenv()
 FRAMES_DIR = Path(
     os.getenv("FRAMES_DIR", "/mnt/mmlab2024nas/anhndt/Batch1/frames"))
-BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8081/")
 
 # Mount static files directory
 app.mount("/static", StaticFiles(directory=FRAMES_DIR), name="static")
@@ -199,7 +142,7 @@ def make_public_url(local_path: str) -> str:
         rel_path = local_path[len(str(FRAMES_DIR)) + 1:]
     else:
         rel_path = local_path
-    return f"{BASE_URL}/static/{rel_path}"
+    return f"{BASE_URL}static/{rel_path}"
 
 def get_idx(name, query, top_k):
     """Get search indices for a model"""
