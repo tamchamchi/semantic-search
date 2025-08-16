@@ -12,7 +12,7 @@ from src.common import registry
 from src.semantic_extractor import SemanticExtractor
 
 from .base import Indexer
-from .utils import parse_frames_info, get_unique_path
+from ..common import parse_frames_info, get_unique_path
 from .rmm_manager import RMMManager
 
 

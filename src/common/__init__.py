@@ -5,6 +5,13 @@ from dotenv import load_dotenv
 
 from .path_loader import setup_paths
 from .registry import Registry, registry
+from .utils import (
+    get_abs_path_by_idx_frame,
+    get_unique_path,
+    parse_frames_info,
+    parse_path_info,
+    reciprocal_rank_fusion,
+)
 
 load_dotenv()
 
@@ -21,6 +28,12 @@ __all__ = [
     "Registry",
 
     "setup_paths",
+
+    "parse_path_info",
+    "parse_frames_info",
+    "get_abs_path_by_idx_frame",
+    "reciprocal_rank_fusion",
+    "get_unique_path",
 
     "ACMM_DIR",
     "FRAME_DIR",

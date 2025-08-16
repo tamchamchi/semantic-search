@@ -1,6 +1,5 @@
 from .base import Indexer
 from .faiss_gpu_index_flat_l2 import FaissGpuIndexFlatL2
-from .utils import parse_frames_info, reciprocal_rank_fusion
 from ..semantic_extractor import SemanticExtractor
 from ..common import registry
 
@@ -9,9 +8,6 @@ __all__ = [
     "Indexer",
 
     "FaissGpuIndexFlatL2",
-
-    "parse_frames_info",
-    "reciprocal_rank_fusion"
 ]
 
 
