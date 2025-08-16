@@ -1,7 +1,10 @@
-from pathlib import Path
-from typing import Union, List
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+from typing import List, Union
+
+from PIL import Image
+from tqdm import tqdm
 
 
 def parse_path_info(example: str):
@@ -142,8 +145,24 @@ def reciprocal_rank_fusion(rank_lists, k_param=60):
     return sorted(scores.items(), key=lambda x: x[1], reverse=True)
 
 
-def get_abs_path_by_idx_frame(idx: int, mapping: dict) -> str:
-    info_frame = mapping[idx]
-    path = Path(info_frame.get["path"])
+def get_image_from_path(paths: Union[str, list[str]]) -> list[Image.Image]:
+    """
+    Load images from given file paths.
 
-    return path
+    Args:
+        paths (list[str]): Image file paths
+
+    Returns:
+        list[Image.Image]: List of RGB PIL images
+    """
+    if isinstance(paths, str):
+        paths = [paths]
+
+    images = []
+    for path in tqdm(paths, desc="Image Loading..."):
+        if not Path(path).exists():
+            raise FileNotFoundError(f"Path does not exist: {path}")
+
+        img = Image.open(path).convert("RGB")
+        images.append(img)
+    return images

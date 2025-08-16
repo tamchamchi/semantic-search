@@ -5,7 +5,10 @@ from .single_semantic_searcher import SingleSemanticSearcher
 
 __all__ = [
     "Searcher",
-    "SingleSemanticSearcher"
+    "SingleSemanticSearcher",
+    
+    "FussionSemanticSearch"
+
 ]
 
 

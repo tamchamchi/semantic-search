@@ -5,14 +5,12 @@ from pathlib import Path
 import faiss
 import numpy as np
 import torch
-from PIL import Image
-from tqdm import tqdm
 
 from src.common import registry
 from src.semantic_extractor import SemanticExtractor
 
 from .base import Indexer
-from ..common import parse_frames_info, get_unique_path
+from ..common import parse_frames_info, get_unique_path, get_image_from_path
 from .rmm_manager import RMMManager
 
 
@@ -88,22 +86,6 @@ class FaissGpuIndexFlatL2(Indexer):
         except Exception as e:
             raise RuntimeError(f"Error creating index: {e}")
 
-    def _get_image_from_path(self, paths: list[str]) -> list[Image.Image]:
-        """
-        Load images from given file paths.
-
-        Args:
-            paths (list[str]): Image file paths
-
-        Returns:
-            list[Image.Image]: List of RGB PIL images
-        """
-        images = []
-        for path in tqdm(paths, desc="Image Loading..."):
-            img = Image.open(path).convert("RGB")
-            images.append(img)
-        return images
-
     def _compute_pool_size(self, embed_size: int, num_embeds: int) -> int:
         """Compute RMM pool size in bytes."""
         return num_embeds * embed_size * 4  # 4 bytes per float32 value
@@ -139,7 +121,7 @@ class FaissGpuIndexFlatL2(Indexer):
 
             if len(batch_paths) == batch_size or idx == len(self.mapping) - 1:
                 # 2. Load batch of images
-                batch_images = self._get_image_from_path(batch_paths)
+                batch_images = get_image_from_path(batch_paths)
 
                 # 3. Extract features
                 batch_features = self.extractor.extract_image_features(

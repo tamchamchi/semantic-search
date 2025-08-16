@@ -1,5 +1,5 @@
-from ..common import registry
-from ..indexer import Indexer, reciprocal_rank_fusion
+from ..common import registry, reciprocal_rank_fusion
+from ..indexer import Indexer
 from ..semantic_extractor import SemanticExtractor
 from .base import Searcher
 
