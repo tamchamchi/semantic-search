@@ -21,12 +21,12 @@ class SearchResponse(BaseModel):
     top_k: int = Field(..., description="Number of results per query")
     processing_time: float = Field(..., description="Processing time in seconds")
 
-class SearchTextRequest(BaseModel):
-    """Request schema for text search"""
+class SearchRequest(BaseModel):
+    """Request schema for text or image search"""
     query: Union[str, List[str]] = Field(
         ...,
-        description="Text query or list of text queries",
-        example="A group of cyclists racing on bicycles"
+        description="Text query, list of text queries, image path(s), or URL of image",
+        example="A group of cyclists racing on bicycles | /data/images/290704.jpg"
     )
     top_k: int = Field(
         default=5,
@@ -37,6 +37,10 @@ class SearchTextRequest(BaseModel):
     model: str = Field(
         default="coca-clip",
         description="Model to use: 'align', 'coca-clip', 'apple-clip', or 'fusion'"
+    )
+    mode: str = Field(
+        default="text",
+        description="Mode to use: 'text' or 'image'"
     )
 
 class HealthResponse(BaseModel):

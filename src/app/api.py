@@ -4,16 +4,23 @@ Uses FAISS-based similarity search with multiple models.
 """
 
 import os
+import time
 from pathlib import Path
 from typing import Any, Dict
-import time
 
 try:
     from fastapi import FastAPI, HTTPException, status
-    from fastapi.responses import JSONResponse
     from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.responses import JSONResponse
     from fastapi.staticfiles import StaticFiles
-    from .schema import ErrorResponse, SearchResponse, SearchResult, SearchTextRequest, HealthResponse
+
+    from .schema import (
+        ErrorResponse,
+        HealthResponse,
+        SearchResponse,
+        SearchResult,
+        SearchRequest,
+    )
 except ImportError as e:
     print(f"FastAPI dependencies not installed: {e}")
     print("Please install with: pip install fastapi uvicorn pydantic")
@@ -21,8 +28,8 @@ except ImportError as e:
 
 from dotenv import load_dotenv
 
-from src.common import FAISS_DIR, MAPPING_DIR, setup_paths
-from src.indexer import load_indexer, reciprocal_rank_fusion
+from src.common import FAISS_DIR, MAPPING_DIR, setup_paths, reciprocal_rank_fusion
+from src.indexer import load_indexer
 from src.searcher import load_searcher
 from src.semantic_extractor import load_semantic_extractor
 
@@ -34,18 +41,18 @@ models = {
         "searcher": None,
         "loaded": False
     },
-    "coca-clip": {
-        "indexer": None,
-        "extractor": None,
-        "searcher": None,
-        "loaded": False
-    },
-    "apple-clip": {
-        "indexer": None,
-        "extractor": None,
-        "searcher": None,
-        "loaded": False
-    }
+    # "coca-clip": {
+    #     "indexer": None,
+    #     "extractor": None,
+    #     "searcher": None,
+    #     "loaded": False
+    # },
+    # "apple-clip": {
+    #     "indexer": None,
+    #     "extractor": None,
+    #     "searcher": None,
+    #     "loaded": False
+    # }
 }
 
 async def initialize_model(model_name):
@@ -144,7 +151,7 @@ def make_public_url(local_path: str) -> str:
         rel_path = local_path
     return f"{BASE_URL}static/{rel_path}"
 
-def get_idx(name, query, top_k):
+def get_idx(name, query, top_k, mode):
     """Get search indices for a model"""
     model_data = models.get(name)
     if not model_data or not model_data["loaded"]:
@@ -154,7 +161,12 @@ def get_idx(name, query, top_k):
     extractor = model_data["extractor"]
     
     # Extract text features
-    embedding = extractor.extract_text_features(query)
+    if mode == "text":
+        embedding = extractor.extract_text_features(query)
+    elif mode == "image":
+        embedding = extractor.extract_image_features(query)
+    else:
+        KeyError(f"Unsupported mode: {mode}")
     
     # Perform search
     _, idx = indexer.index_gpu.search(embedding, top_k)
@@ -192,13 +204,13 @@ async def health_check():
         total_indexed_items=total_items
     )
 
-@app.post("/search_text/", response_model=SearchResponse)
-async def search_text(request: SearchTextRequest):
+@app.post("/search_semantic/", response_model=SearchResponse)
+async def search_semantic(request: SearchRequest):
     """
-    Perform text-based semantic search
+    Perform text-based semantic search or image-based semantic search
     
     Args:
-        request (SearchTextRequest): Search request with query and parameters
+        request (SearchRequest): Search request with query/image and parameters
     
     Returns:
         SearchResponse: Search results with metadata
@@ -223,7 +235,8 @@ async def search_text(request: SearchTextRequest):
         # Perform search
         search_results = searcher.search(
             query=request.query,
-            top_k=request.top_k
+            top_k=request.top_k,
+            mode=request.mode
         )
 
         processing_time = time.time() - start_time
@@ -254,6 +267,7 @@ async def search_text(request: SearchTextRequest):
             model=request.model,
             total_queries=total_queries,
             top_k=request.top_k,
+            mode=request.mode,
             processing_time=processing_time
         )
 
@@ -264,7 +278,7 @@ async def search_text(request: SearchTextRequest):
         )
 
 @app.post("/search_fusion/", response_model=SearchResponse)
-async def search_fusion_text(request: SearchTextRequest):
+async def search_fusion_text(request: SearchRequest):
     """
     Perform fusion search using reciprocal rank fusion
     
@@ -288,9 +302,9 @@ async def search_fusion_text(request: SearchTextRequest):
         start_time = time.time()
         
         # Get results from each model
-        align_results = get_idx("align", request.query, request.top_k)
-        coca_clip_results = get_idx("coca-clip", request.query, request.top_k)
-        apple_clip_results = get_idx("apple-clip", request.query, request.top_k)
+        align_results = get_idx("align", request.query, request.top_k, mode=request.mode)
+        coca_clip_results = get_idx("coca-clip", request.query, request.top_k,mode=request.mode)
+        apple_clip_results = get_idx("apple-clip", request.query, request.top_k,mode=request.mode)
 
         # Check which models are available
         rank_lists = []
