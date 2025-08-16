@@ -7,6 +7,7 @@ import os
 import time
 from pathlib import Path
 from typing import Any, Dict
+import asyncio
 
 try:
     from fastapi import FastAPI, HTTPException, status
@@ -27,6 +28,7 @@ except ImportError as e:
     raise
 
 from dotenv import load_dotenv
+from googletrans import Translator
 
 from src.common import FAISS_DIR, MAPPING_DIR, setup_paths, reciprocal_rank_fusion
 from src.indexer import load_indexer
@@ -54,6 +56,9 @@ models = {
     #     "loaded": False
     # }
 }
+
+translator = Translator()
+
 
 async def initialize_model(model_name):
     """Initialize a specific model if saved files exist"""
@@ -84,6 +89,7 @@ async def initialize_model(model_name):
         print(f"⚠️ Index files missing for {model_name}")
     return False
 
+
 def cleanup_resources():
     """Clean up resources on shutdown"""
     for model_name, model_data in models.items():
@@ -97,6 +103,7 @@ def cleanup_resources():
             model_data["indexer"] = None
             model_data["searcher"] = None
             model_data["loaded"] = False
+
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -125,6 +132,7 @@ BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8081/")
 # Mount static files directory
 app.mount("/static", StaticFiles(directory=FRAMES_DIR), name="static")
 
+
 @app.on_event("startup")
 async def startup_event():
     """Application startup event"""
@@ -137,11 +145,13 @@ async def startup_event():
         await initialize_model(model_name)
     print("✅ All models initialized\n")
 
+
 @app.on_event("shutdown")
 async def shutdown_event():
     """Application shutdown event"""
     cleanup_resources()
     print("🛑 Resources cleaned up")
+
 
 def make_public_url(local_path: str) -> str:
     """Convert local path to public URL"""
@@ -151,15 +161,16 @@ def make_public_url(local_path: str) -> str:
         rel_path = local_path
     return f"{BASE_URL}static/{rel_path}"
 
+
 def get_idx(name, query, top_k, mode):
     """Get search indices for a model"""
     model_data = models.get(name)
     if not model_data or not model_data["loaded"]:
         return None
-    
+
     indexer = model_data["indexer"]
     extractor = model_data["extractor"]
-    
+
     # Extract text features
     if mode == "text":
         embedding = extractor.extract_text_features(query)
@@ -167,10 +178,11 @@ def get_idx(name, query, top_k, mode):
         embedding = extractor.extract_image_features(query)
     else:
         KeyError(f"Unsupported mode: {mode}")
-    
+
     # Perform search
     _, idx = indexer.index_gpu.search(embedding, top_k)
     return idx[0].tolist()
+
 
 @app.get("/", response_model=Dict[str, Any])
 async def root():
@@ -186,17 +198,18 @@ async def root():
         "base_url": BASE_URL
     }
 
+
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint"""
     loaded_status = {}
     total_items = {}
-    
+
     for model_name, model_data in models.items():
         loaded_status[model_name] = model_data["loaded"]
         if model_data["loaded"] and model_data["indexer"] and hasattr(model_data["indexer"], 'index_gpu'):
             total_items[model_name] = model_data["indexer"].index_gpu.ntotal
-    
+
     return HealthResponse(
         status="healthy",
         version="2.0.0",
@@ -204,39 +217,53 @@ async def health_check():
         total_indexed_items=total_items
     )
 
+
+async def translate_async(texts: list[str], target_language: str = "en") -> list[str]:
+    if isinstance(texts, str):
+        texts = list[texts]
+    tasks = [translator.translate(text, dest=target_language)
+             for text in texts]
+    results = await asyncio.gather(*tasks)
+    return [r.text for r in results]
+
+
 @app.post("/search_semantic/", response_model=SearchResponse)
 async def search_semantic(request: SearchRequest):
     """
     Perform text-based semantic search or image-based semantic search
-    
+
     Args:
         request (SearchRequest): Search request with query/image and parameters
-    
+
     Returns:
         SearchResponse: Search results with metadata
     """
     # Handle fusion search separately
     if request.model == "fusion":
         return await search_fusion_text(request)
-    
+
     model_data = models.get(request.model)
-    
+
     # Validate model availability
     if not model_data or not model_data["loaded"]:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Model '{request.model}' not loaded or not available"
         )
-    
+
     searcher = model_data["searcher"]
     try:
         start_time = time.time()
+
+        # Translate query into the target language before embedding
+        if request.mode == "text":
+            request.query = await translate_async(request.query, request.target_language)
 
         # Perform search
         search_results = searcher.search(
             query=request.query,
             top_k=request.top_k,
-            mode=request.mode
+            mode=request.mode,
         )
 
         processing_time = time.time() - start_time
@@ -245,7 +272,8 @@ async def search_semantic(request: SearchRequest):
         formatted_results = []
         for item in search_results:
             original_path = item.get("path", "")
-            public_path = make_public_url(original_path) if original_path else ""
+            public_path = make_public_url(
+                original_path) if original_path else ""
 
             formatted_results.append(
                 SearchResult(
@@ -277,14 +305,15 @@ async def search_semantic(request: SearchRequest):
             detail=f"Search failed: {str(e)}"
         )
 
+
 @app.post("/search_fusion/", response_model=SearchResponse)
 async def search_fusion_text(request: SearchRequest):
     """
     Perform fusion search using reciprocal rank fusion
-    
+
     Args:
         request (SearchTextRequest): Search request with query and parameters
-    
+
     Returns:
         SearchResponse: Fused search results
     """
@@ -295,16 +324,19 @@ async def search_fusion_text(request: SearchRequest):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Align model not loaded, required for fusion"
         )
-    
+
     mapping = align_model["indexer"].mapping
 
     try:
         start_time = time.time()
-        
+
         # Get results from each model
-        align_results = get_idx("align", request.query, request.top_k, mode=request.mode)
-        coca_clip_results = get_idx("coca-clip", request.query, request.top_k,mode=request.mode)
-        apple_clip_results = get_idx("apple-clip", request.query, request.top_k,mode=request.mode)
+        align_results = get_idx("align", request.query,
+                                request.top_k, mode=request.mode)
+        coca_clip_results = get_idx(
+            "coca-clip", request.query, request.top_k, mode=request.mode)
+        apple_clip_results = get_idx(
+            "apple-clip", request.query, request.top_k, mode=request.mode)
 
         # Check which models are available
         rank_lists = []
@@ -314,7 +346,7 @@ async def search_fusion_text(request: SearchRequest):
             rank_lists.append(coca_clip_results)
         if apple_clip_results is not None:
             rank_lists.append(apple_clip_results)
-        
+
         if not rank_lists:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -323,7 +355,7 @@ async def search_fusion_text(request: SearchRequest):
 
         # Apply reciprocal rank fusion
         rrf = reciprocal_rank_fusion(rank_lists)
-        
+
         # Get top-k results
         fusion_res = [mapping[i[0]] for i in rrf[:request.top_k]]
 
@@ -333,7 +365,8 @@ async def search_fusion_text(request: SearchRequest):
         formatted_results = []
         for item in fusion_res:
             original_path = item.get("path", "")
-            public_path = make_public_url(original_path) if original_path else ""
+            public_path = make_public_url(
+                original_path) if original_path else ""
 
             formatted_results.append(
                 SearchResult(
@@ -347,7 +380,8 @@ async def search_fusion_text(request: SearchRequest):
             query=request.query,
             results=formatted_results,
             model="fusion",
-            total_queries=1 if isinstance(request.query, str) else len(request.query),
+            total_queries=1 if isinstance(
+                request.query, str) else len(request.query),
             top_k=request.top_k,
             processing_time=processing_time
         )
@@ -357,6 +391,7 @@ async def search_fusion_text(request: SearchRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Fusion search failed: {str(e)}"
         )
+
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
@@ -369,6 +404,7 @@ async def http_exception_handler(request, exc):
             detail=f"Status code: {exc.status_code}"
         ).dict()
     )
+
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):

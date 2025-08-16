@@ -2,12 +2,15 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Union, Dict, Any
 
 # Pydantic Models / Schemas
+
+
 class SearchResult(BaseModel):
     """Schema for individual search result"""
     path: str = Field(..., description="Path to the matched image")
     score: Optional[float] = Field(None, description="Similarity score")
     metadata: Optional[Dict[str, Any]] = Field(
         None, description="Additional metadata")
+
 
 class SearchResponse(BaseModel):
     """Schema for search response"""
@@ -19,7 +22,9 @@ class SearchResponse(BaseModel):
     model: str = Field(..., description="Model used for search")
     total_queries: int = Field(..., description="Number of queries processed")
     top_k: int = Field(..., description="Number of results per query")
-    processing_time: float = Field(..., description="Processing time in seconds")
+    processing_time: float = Field(...,
+                                   description="Processing time in seconds")
+
 
 class SearchRequest(BaseModel):
     """Request schema for text or image search"""
@@ -35,13 +40,18 @@ class SearchRequest(BaseModel):
         description="Number of top results to return"
     )
     model: str = Field(
-        default="coca-clip",
+        default="align",
         description="Model to use: 'align', 'coca-clip', 'apple-clip', or 'fusion'"
     )
     mode: str = Field(
         default="text",
         description="Mode to use: 'text' or 'image'"
     )
+    target_language: str = Field(
+        default="en",
+        description="Target language code (e.g., 'en' = English, 'vi' = Vietnamese)"
+    )
+
 
 class HealthResponse(BaseModel):
     """Schema for health check response"""
@@ -55,6 +65,7 @@ class HealthResponse(BaseModel):
         ...,
         description="Total items indexed per model"
     )
+
 
 class ErrorResponse(BaseModel):
     """Schema for error responses"""

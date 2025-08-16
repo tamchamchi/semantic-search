@@ -1,7 +1,4 @@
-from pathlib import Path
-
 import numpy as np
-from PIL import Image
 
 from ..common import get_image_from_path, reciprocal_rank_fusion, registry
 from ..indexer import Indexer
@@ -16,29 +13,47 @@ class SingleSemanticSearcher(Searcher):
         self.extractor = extractor
         self.indexer = indexer
 
-    def search(self, query, top_k: int = 5, return_idx: bool = False, mode: str = "text", use_rrf: bool = True):
+    def search(
+        self,
+        query,
+        top_k: int = 5,
+        return_idx: bool = False,
+        mode: str = "text",
+        use_rrf: bool = True,
+    ):
         """
-        Search top-k results for one or multiple queries.
+        Perform similarity search on text or image queries using FAISS.
 
         Args:
-            query (str or list[str]): Single text query or a list of queries
-            top_k (int): Number of results to return
-            return_idx (bool): If True, return only indices from FAISS. 
-                            If False, return mapping entries.
-
+            query (Union[str, List[str], Image.Image, List[Image.Image]]):
+                - Text query (single string or list of strings), OR
+                - Path(s) to image(s) (string or list of strings), OR
+                - Pre-loaded PIL Image(s).
+            top_k (int, optional):
+                Number of top results to return. Defaults to 5.
+            return_idx (bool, optional):
+                If True → return only FAISS indices.
+                If False → return mapping entries (metadata). Defaults to False.
+            mode (str, optional):
+                "text" → search using text embeddings.  
+                "image" → search using image embeddings. Defaults to "text".
+            use_rrf (bool, optional):
+                Whether to apply Reciprocal Rank Fusion (RRF) on results. Defaults to True.
         Returns:
-            list: If return_idx=True, returns ndarray of shape (n_queries, top_k)
-                If return_idx=False, returns list of list of mapping entries
+            Union[np.ndarray, List]:
+                - If return_idx=True → FAISS indices, shape (n_queries, top_k).  
+                - If return_idx=False → List of results (metadata entries).
         """
         if mode == "text":
-            # Extract embeddings for one or multiple queries
+            # Extract embeddings from text queries
             query_embed = self.extractor.extract_text_features(
                 query).astype(np.float32)
-            # Ensure 2D array for FAISS
+
+            # Ensure embeddings are always 2D for FAISS
             if query_embed.ndim == 1:
                 query_embed = query_embed[np.newaxis, :]
-        elif mode == "image":
 
+        elif mode == "image":
             images = None
 
             # Case 1: query is a list of string paths
@@ -55,29 +70,34 @@ class SingleSemanticSearcher(Searcher):
 
             else:
                 raise ValueError(
-                    f"Unsupported query type for mode=image: {type(query)}")
+                    f"Unsupported query type for mode=image: {type(query)}"
+                )
 
-            # Extract embeddings for one or multiple queries
+            # Extract embeddings from images
             query_embed = self.extractor.extract_image_features(
-                images).astype(np.float32)
-            # Ensure 2D array for FAISS
+                images
+            ).astype(np.float32)
+
+            # Ensure embeddings are always 2D for FAISS
             if query_embed.ndim == 1:
                 query_embed = query_embed[np.newaxis, :]
+
         else:
             raise KeyError(f"Unsupported mode: {mode}")
 
-        # Batch search in FAISS
-        _, idx = self.indexer.index_gpu.search(
-            query_embed, top_k)  # idx: (n_queries, top_k)
+        # Perform nearest-neighbor search in FAISS
+        _, idx = self.indexer.index_gpu.search(query_embed, top_k)
 
+        # Case 1: user only wants FAISS indices
         if return_idx:
             return idx
 
+        # Case 2: apply Reciprocal Rank Fusion to merge multiple query results
         if use_rrf:
             rrf = reciprocal_rank_fusion(idx)
             return [self.indexer.mapping[i[0]] for i in rrf[:top_k]]
 
-        # Map indices to metadata
+        # Case 3: map FAISS indices back to metadata (default)
         results = [
             [self.indexer.mapping[i] for i in row]
             for row in idx
