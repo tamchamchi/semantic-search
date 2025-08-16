@@ -43,18 +43,18 @@ models = {
         "searcher": None,
         "loaded": False
     },
-    # "coca-clip": {
-    #     "indexer": None,
-    #     "extractor": None,
-    #     "searcher": None,
-    #     "loaded": False
-    # },
-    # "apple-clip": {
-    #     "indexer": None,
-    #     "extractor": None,
-    #     "searcher": None,
-    #     "loaded": False
-    # }
+    "coca-clip": {
+        "indexer": None,
+        "extractor": None,
+        "searcher": None,
+        "loaded": False
+    },
+    "apple-clip": {
+        "indexer": None,
+        "extractor": None,
+        "searcher": None,
+        "loaded": False
+    }
 }
 
 translator = Translator()

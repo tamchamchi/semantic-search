@@ -10,12 +10,11 @@ from src.semantic_extractor import load_semantic_extractor
 setup_paths()
 load_dotenv()
 
-ACMM_DIR = Path(os.getenv("ACMM_DATA_DIR"))
-FRAME_DIR = ACMM_DIR / "frames_new"
+FRAME_DIR = Path(os.getenv("PROCESSED_FRAME_DIR"))
 
-MAPPING_DIR = Path(os.getenv("NEW_MAPPING_DIR"))
-FAISS_DIR = Path(os.getenv("NEW_FAISS_DIR"))
-EMBEDS_DIR = Path(os.getenv("NEW_EMBEDS_DIR"))
+MAPPING_DIR = Path(os.getenv("PROCESSED_MAPPING_DIR"))
+FAISS_DIR = Path(os.getenv("PROCESSED_FAISS_DIR"))
+EMBEDS_DIR = Path(os.getenv("PROCESSED_EMBEDS_DIR"))
 
 
 def indexing(indexer_name, extractor_name, batch_size: int = 1000, fast_test: bool = False):

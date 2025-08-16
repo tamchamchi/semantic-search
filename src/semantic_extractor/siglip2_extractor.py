@@ -11,7 +11,7 @@ from .base import SemanticExtractor
 
 @registry.register_semantic_extractor("siglip2")
 class Siglip2Extractor(SemanticExtractor):
-    def __init__(self, model_path: str = "google/siglip2-so400m-patch14-384", device: str = "cuda"):
+    def __init__(self, model_path: str = "google/siglip2-giant-opt-patch16-384", device: str = "cuda"):
         super().__init__()
         self.device = device
         self.model_path = model_path
