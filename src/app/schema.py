@@ -31,7 +31,7 @@ class SearchTextRequest(BaseModel):
     top_k: int = Field(
         default=5,
         ge=1,
-        le=100,
+        le=500,
         description="Number of top results to return"
     )
     model: str = Field(
