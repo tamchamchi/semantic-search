@@ -22,7 +22,7 @@ def parse_path_info(example: str):
         ValueError: if the path does not match the expected format.
     """
     # Regex pattern to extract video folder, video id, and frame id
-    pattern = r"Videos_(L\d+_[a-z])/.+?/(L\d+_(V\d+)_(\d+))\.jpg"
+    pattern = r"Videos_(L\d+_[a-z0-9]+)/.+?/(L\d+_(V\d+)_(\d+))"
     match = re.search(pattern, example)
 
     if match:
