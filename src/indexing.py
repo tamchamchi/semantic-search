@@ -20,7 +20,7 @@ EMBEDS_DIR = Path(os.getenv("NEW_EMBEDS_DIR"))
 
 def indexing(indexer_name, extractor_name, batch_size: int = 1000, fast_test: bool = False):
     mapping_file = MAPPING_DIR / f"mapping_{extractor_name}.json"
-    embed_file = EMBEDS_DIR / f"images_embeddings_{extractor_name}.bin"
+    embed_file = EMBEDS_DIR / f"images_embeddings_{extractor_name}.npy"
     faiss_file = FAISS_DIR / f"faiss_index_{extractor_name}.faiss"
 
     extractor = load_semantic_extractor(extractor_name)

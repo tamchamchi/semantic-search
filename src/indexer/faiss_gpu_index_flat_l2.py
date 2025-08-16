@@ -208,10 +208,10 @@ class FaissGpuIndexFlatL2(Indexer):
         return [[self.mapping[i] for i in row] for row in idx]
 
     def save_image_embed(self, path: Path):
-        """Save image feature embeddings to a binary file."""
+        """Save image feature embeddings to a .npy file (with shape info)."""
         path = get_unique_path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        self.image_features.astype(np.float32).tofile(path)
+        np.save(path, self.image_features.astype(np.float32))
         print(f"Saved embedding to {path} with shape {self.image_features.shape}")
 
     def save_faiss_index(self, path: Path):
