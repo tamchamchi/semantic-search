@@ -11,11 +11,11 @@ setup_paths()
 load_dotenv()
 
 ACMM_DIR = Path(os.getenv("ACMM_DATA_DIR"))
-FRAME_DIR = ACMM_DIR / "frames"
+FRAME_DIR = ACMM_DIR / "frames_new"
 
-MAPPING_DIR = Path(os.getenv("MAPPING_DIR"))
-FAISS_DIR = Path(os.getenv("FAISS_DIR"))
-EMBEDS_DIR = Path(os.getenv("EMBEDS_DIR"))
+MAPPING_DIR = Path(os.getenv("NEW_MAPPING_DIR"))
+FAISS_DIR = Path(os.getenv("NEW_FAISS_DIR"))
+EMBEDS_DIR = Path(os.getenv("NEW_EMBEDS_DIR"))
 
 
 def indexing(indexer_name, extractor_name, batch_size: int = 1000, fast_test: bool = False):
